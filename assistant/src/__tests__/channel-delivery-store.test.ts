@@ -203,6 +203,21 @@ describe("channel-delivery-store", () => {
     ).toBe(topic.conversationId);
   });
 
+  test("Telegram inbound reuses a pre-registered thread key (fork continues, no new conversation)", () => {
+    const seed = recordInbound("telegram", "chat-fork", "seed-msg");
+    const forkedConversationId = seed.conversationId;
+    setConversationKey(
+      "asst:self:telegram:chat-fork:thread:777",
+      forkedConversationId,
+    );
+
+    const inFork = recordInbound("telegram", "chat-fork", "fork-reply", {
+      sourceThreadId: "777",
+    });
+
+    expect(inFork.conversationId).toBe(forkedConversationId);
+  });
+
   test("thread-less Slack reset clears only the channel-level binding, keeping thread bindings", async () => {
     // Pins the channel-agnostic reset contract for Slack: a channel-root
     // /new must not unbind the channel's thread conversations.
