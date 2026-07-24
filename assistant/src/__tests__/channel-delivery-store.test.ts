@@ -251,7 +251,9 @@ describe("channel-delivery-store", () => {
     const res = await handleDeleteConversation(req);
     expect(res.status).toBe(200);
 
-    expect(getBindingByChannelChat("slack", "C0123ABCDEF")).toBeNull();
+    expect(
+      getBindingByChannelChat("slack", "C0123ABCDEF")?.conversationId,
+    ).toBe("conv-slack-root");
     expect(
       getBindingByChannelChatThread("slack", "C0123ABCDEF", "1710000000.000100")
         ?.conversationId,
@@ -292,10 +294,12 @@ describe("channel-delivery-store", () => {
     const res = await handleDeleteConversation(req);
     expect(res.status).toBe(200);
 
-    // The main-chat keys and binding are gone…
+    // The main-chat keys are gone; the binding stays for sidebar grouping.
     expect(getConversationByKey("asst:self:telegram:chat-9")).toBeNull();
     expect(getConversationByKey("telegram:chat-9")).toBeNull();
-    expect(getBindingByChannelChat("telegram", "chat-9")).toBeNull();
+    expect(getBindingByChannelChat("telegram", "chat-9")?.conversationId).toBe(
+      "conv-main",
+    );
     // …while the topic conversation keeps its key and binding.
     expect(
       getConversationByKey("asst:self:telegram:chat-9:thread:777")
@@ -1172,16 +1176,15 @@ describe("channel-delivery-store", () => {
     const json = (await res.json()) as { ok: boolean };
     expect(json.ok).toBe(true);
 
-    // Self delete removes both scoped key and legacy key.
+    // Self delete removes both scoped key and legacy key; bindings stay put.
     expect(getConversationByKey(scopedKey)).toBeNull();
     expect(getConversationByKey(legacyKey)).toBeNull();
-    // Self delete also removes external bindings.
     const remainingBinding = db
       .select()
       .from(externalConversationBindings)
       .where(eq(externalConversationBindings.conversationId, convId))
       .get();
-    expect(remainingBinding).toBeUndefined();
+    expect(remainingBinding?.conversationId).toBe(convId);
   });
 
   test('handleDeleteConversation defaults to "self" when no assistantId provided', async () => {
@@ -1226,16 +1229,15 @@ describe("channel-delivery-store", () => {
 
     expect(getConversationByKey(scopedKey)).toBeNull();
     expect(getConversationByKey(legacyKey)).toBeNull();
-    // Self delete should keep external bindings in sync for the canonical route.
     const remainingBinding = db
       .select()
       .from(externalConversationBindings)
       .where(eq(externalConversationBindings.conversationId, convId))
       .get();
-    expect(remainingBinding).toBeUndefined();
+    expect(remainingBinding?.conversationId).toBe(convId);
   });
 
-  test("main-chat /new (no thread) resets only the null-thread binding, keeping topic bindings", async () => {
+  test("main-chat /new clears only main-chat keys, keeping main and topic bindings", async () => {
     const now = Date.now();
     const db = getDb();
     const mainConvId = "conv-main-dm";
@@ -1276,10 +1278,12 @@ describe("channel-delivery-store", () => {
     const res = await handleDeleteConversation(req);
     expect(res.status).toBe(200);
 
-    // Main-chat keys and binding are cleared...
+    // Main-chat keys are cleared; bindings stay for sidebar grouping.
     expect(getConversationByKey(mainScopedKey)).toBeNull();
     expect(getConversationByKey(legacyKey)).toBeNull();
-    expect(getBindingByChannelChat("telegram", chatId)).toBeNull();
+    expect(getBindingByChannelChat("telegram", chatId)?.conversationId).toBe(
+      mainConvId,
+    );
     // ...but the open topic's key and binding survive.
     expect(getConversationByKey(topicKey)?.conversationId).toBe(topicConvId);
     expect(
@@ -1287,7 +1291,7 @@ describe("channel-delivery-store", () => {
     ).toBe(topicConvId);
   });
 
-  test("topic-scoped /new resets only that topic binding, keeping main and other topics", async () => {
+  test("topic-scoped /new clears only that topic key, keeping all bindings", async () => {
     const now = Date.now();
     const db = getDb();
     const mainConvId = "conv-main-topic-new";
@@ -1342,8 +1346,9 @@ describe("channel-delivery-store", () => {
 
     expect(getConversationByKey(resetTopicKey)).toBeNull();
     expect(
-      getBindingByChannelChatThread("telegram", chatId, resetThreadId),
-    ).toBeNull();
+      getBindingByChannelChatThread("telegram", chatId, resetThreadId)
+        ?.conversationId,
+    ).toBe(topicConvId);
     expect(getConversationByKey(mainScopedKey)?.conversationId).toBe(
       mainConvId,
     );
