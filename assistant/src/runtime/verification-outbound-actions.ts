@@ -20,6 +20,7 @@ import {
   countRecentSendsToDestination,
   createOutboundSession,
   findActiveSession,
+  registerTelegramVerificationTopic,
   updateSessionDelivery,
   updateSessionStatus,
 } from "../channels/gateway-verification-sessions.js";
@@ -81,7 +82,9 @@ function isTelegramChatId(destination: string): boolean {
  * Numeric chat IDs are returned as-is.
  */
 export function normalizeTelegramDestination(destination: string): string {
-  if (isTelegramChatId(destination)) return destination;
+  if (isTelegramChatId(destination)) {
+    return destination;
+  }
   return destination.replace(/^@/, "").toLowerCase();
 }
 
@@ -157,6 +160,16 @@ export function deliverVerificationTelegram(
   (async () => {
     try {
       const messageThreadId = await resolveVerificationThreadId(chatId);
+      if (messageThreadId) {
+        try {
+          await registerTelegramVerificationTopic(chatId, messageThreadId);
+        } catch (err) {
+          log.warn(
+            { err, chatId, messageThreadId },
+            "Failed to register Telegram verification topic for teardown",
+          );
+        }
+      }
       await sendTelegramReply(
         chatId,
         text,
@@ -164,7 +177,7 @@ export function deliverVerificationTelegram(
         messageThreadId ? { messageThreadId } : undefined,
       );
       log.info(
-        { chatId, assistantId },
+        { chatId, assistantId, messageThreadId },
         "Verification Telegram message delivered",
       );
     } catch (err) {

@@ -30,6 +30,11 @@ import {
 } from "../../telegram/normalize.js";
 import { sendTelegramReply } from "../../telegram/send.js";
 import {
+  forgetVerificationTopic,
+  isVerificationTopic,
+  rememberVerificationTopic,
+} from "../../telegram/verification-topic-registry.js";
+import {
   handleTelegramAccessCallback,
   handleTelegramAccessCommand,
   handleTelegramArchiveCommand,
@@ -91,40 +96,6 @@ export function createTelegramWebhookHandler(
   caches?: { credentials?: CredentialCache; configFile?: ConfigFileCache },
 ) {
   const dedupCache = new DedupCache();
-
-  // Verification topics this gateway created per chat (threaded mode). A
-  // verified code only tears down the dedicated Verification topic recorded
-  // here — never an ordinary assistant topic where a user happens to paste a
-  // still-valid code. In-memory is sufficient: a gateway restart just skips the
-  // best-effort teardown, which is safe.
-  const VERIFICATION_TOPIC_TTL_MS = 30 * 60_000;
-  const verificationTopics = new Map<
-    string,
-    { threadId: string; expiresAt: number }
-  >();
-  const rememberVerificationTopic = (
-    chatId: string,
-    threadId: string,
-  ): void => {
-    verificationTopics.set(chatId, {
-      threadId,
-      expiresAt: Date.now() + VERIFICATION_TOPIC_TTL_MS,
-    });
-  };
-  const isVerificationTopic = (chatId: string, threadId: string): boolean => {
-    const entry = verificationTopics.get(chatId);
-    if (!entry) {
-      return false;
-    }
-    if (Date.now() > entry.expiresAt) {
-      verificationTopics.delete(chatId);
-      return false;
-    }
-    return entry.threadId === threadId;
-  };
-  const forgetVerificationTopic = (chatId: string): void => {
-    verificationTopics.delete(chatId);
-  };
 
   const handler = async (req: Request): Promise<Response> => {
     const traceId = req.headers.get("x-trace-id") ?? undefined;
