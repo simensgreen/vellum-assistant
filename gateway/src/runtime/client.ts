@@ -213,6 +213,10 @@ export type RuntimeInboundResponse = {
    * should deliver it directly to the channel.
    */
   replyText?: string;
+  /** Thread id of a dedicated Verification topic created during bootstrap. */
+  verificationThreadId?: string;
+  /** Bootstrap / verification intercept outcome metadata from the runtime. */
+  verificationOutcome?: string;
 };
 
 export type ForwardOptions = {

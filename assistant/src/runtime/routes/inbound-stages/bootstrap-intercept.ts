@@ -205,11 +205,16 @@ export async function handleBootstrapIntercept(
     },
   );
 
+  const verificationThreadId = await resolveVerificationThreadId(
+    conversationExternalId,
+  );
+
   // Deliver verification Telegram message directly (fire-and-forget)
   deliverBootstrapVerificationTelegram(
     conversationExternalId,
     telegramBody,
     canonicalAssistantId,
+    verificationThreadId,
   );
 
   // Update delivery tracking (best-effort — the code is already on its way)
@@ -233,6 +238,7 @@ export async function handleBootstrapIntercept(
     duplicate: false,
     eventId,
     verificationOutcome: "bootstrap_bound",
+    ...(verificationThreadId ? { verificationThreadId } : {}),
   };
 }
 
@@ -248,16 +254,17 @@ function deliverBootstrapVerificationTelegram(
   chatId: string,
   text: string,
   assistantId: string,
+  messageThreadId: string | undefined,
 ): void {
   const attemptDelivery = async (
-    messageThreadId: string | undefined,
+    threadId: string | undefined,
   ): Promise<boolean> => {
     try {
       await sendTelegramReply(
         chatId,
         text,
         undefined,
-        messageThreadId ? { messageThreadId } : undefined,
+        threadId ? { messageThreadId: threadId } : undefined,
       );
       return true;
     } catch (err) {
@@ -270,13 +277,10 @@ function deliverBootstrapVerificationTelegram(
   };
 
   (async () => {
-    // Resolve the verification thread once so self-retries reuse the same
-    // topic instead of spawning a new one per attempt.
-    const messageThreadId = await resolveVerificationThreadId(chatId);
     const delivered = await attemptDelivery(messageThreadId);
     if (delivered) {
       log.info(
-        { chatId, assistantId },
+        { chatId, assistantId, messageThreadId },
         "Bootstrap verification Telegram message delivered",
       );
       return;
@@ -290,12 +294,12 @@ function deliverBootstrapVerificationTelegram(
       const retried = await attemptDelivery(messageThreadId);
       if (retried) {
         log.info(
-          { chatId, assistantId },
+          { chatId, assistantId, messageThreadId },
           "Bootstrap verification Telegram message delivered on self-retry",
         );
       } else {
         log.error(
-          { chatId, assistantId },
+          { chatId, assistantId, messageThreadId },
           "Bootstrap verification Telegram self-retry also failed",
         );
       }

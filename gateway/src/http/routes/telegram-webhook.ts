@@ -731,9 +731,18 @@ export function createTelegramWebhookHandler(
         } else {
           tlog.info({ status: "forwarded" }, "Forwarded /start to runtime");
 
+          const startRuntimeResp = result.runtimeResponse;
+          const bootstrapVerificationThreadId =
+            startRuntimeResp?.verificationThreadId;
+          if (bootstrapVerificationThreadId) {
+            rememberVerificationTopic(
+              normalized.message.conversationExternalId,
+              bootstrapVerificationThreadId,
+            );
+          }
+
           // Fallback: if the runtime denied the message and could not
           // deliver the rejection reply via callback, send it directly.
-          const startRuntimeResp = result.runtimeResponse;
           if (startRuntimeResp?.denied && startRuntimeResp.replyText) {
             const startSender =
               normalized.actor.actorExternalId ??

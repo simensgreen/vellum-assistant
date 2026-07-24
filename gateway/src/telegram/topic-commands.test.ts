@@ -20,6 +20,13 @@ mock.module("../risk/trust-verdict-resolver.js", () => ({
 mock.module("../runtime/client.js", () => ({
   applyTelegramTopicTitleFromTelegram: mock(() => Promise.resolve()),
   archiveTelegramTopic: mock(() => Promise.resolve({ title: null })),
+  CircuitBreakerOpenError: class CircuitBreakerOpenError extends Error {
+    retryAfterSecs: number;
+    constructor(retryAfterSecs: number) {
+      super("Circuit breaker open");
+      this.retryAfterSecs = retryAfterSecs;
+    }
+  },
   forkTelegramTopic: forkTelegramTopicMock,
   getTelegramTopicAccessMode: mock(() =>
     Promise.resolve({ currentThreshold: "medium" }),

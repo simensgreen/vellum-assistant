@@ -1286,4 +1286,77 @@ describe("channel-delivery-store", () => {
       getBindingByChannelChatThread("telegram", chatId, "555")?.conversationId,
     ).toBe(topicConvId);
   });
+
+  test("topic-scoped /new resets only that topic binding, keeping main and other topics", async () => {
+    const now = Date.now();
+    const db = getDb();
+    const mainConvId = "conv-main-topic-new";
+    const topicConvId = "conv-topic-reset";
+    const otherTopicConvId = "conv-topic-other";
+    const chatId = "chat-topic-new";
+    const resetThreadId = "555";
+    const otherThreadId = "666";
+    const mainScopedKey = `asst:self:telegram:${chatId}`;
+    const legacyKey = `telegram:${chatId}`;
+    const resetTopicKey = `asst:self:telegram:${chatId}:thread:${resetThreadId}`;
+    const otherTopicKey = `asst:self:telegram:${chatId}:thread:${otherThreadId}`;
+
+    for (const id of [mainConvId, topicConvId, otherTopicConvId]) {
+      db.insert(conversations)
+        .values({ id, title: "test", createdAt: now, updatedAt: now })
+        .run();
+    }
+    setConversationKey(mainScopedKey, mainConvId);
+    setConversationKey(legacyKey, mainConvId);
+    setConversationKey(resetTopicKey, topicConvId);
+    setConversationKey(otherTopicKey, otherTopicConvId);
+    upsertBinding({
+      conversationId: mainConvId,
+      sourceChannel: "telegram",
+      externalChatId: chatId,
+    });
+    upsertBinding({
+      conversationId: topicConvId,
+      sourceChannel: "telegram",
+      externalChatId: chatId,
+      externalThreadId: resetThreadId,
+    });
+    upsertBinding({
+      conversationId: otherTopicConvId,
+      sourceChannel: "telegram",
+      externalChatId: chatId,
+      externalThreadId: otherThreadId,
+    });
+
+    const req = new Request("http://localhost/channels/conversation", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceChannel: "telegram",
+        conversationExternalId: chatId,
+        sourceThreadId: resetThreadId,
+      }),
+    });
+    const res = await handleDeleteConversation(req);
+    expect(res.status).toBe(200);
+
+    expect(getConversationByKey(resetTopicKey)).toBeNull();
+    expect(
+      getBindingByChannelChatThread("telegram", chatId, resetThreadId),
+    ).toBeNull();
+    expect(getConversationByKey(mainScopedKey)?.conversationId).toBe(
+      mainConvId,
+    );
+    expect(getConversationByKey(legacyKey)?.conversationId).toBe(mainConvId);
+    expect(getBindingByChannelChat("telegram", chatId)?.conversationId).toBe(
+      mainConvId,
+    );
+    expect(getConversationByKey(otherTopicKey)?.conversationId).toBe(
+      otherTopicConvId,
+    );
+    expect(
+      getBindingByChannelChatThread("telegram", chatId, otherThreadId)
+        ?.conversationId,
+    ).toBe(otherTopicConvId);
+  });
 });
