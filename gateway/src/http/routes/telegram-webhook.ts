@@ -40,7 +40,6 @@ import {
   handleTelegramProfileCommand,
   handleTelegramRenameCommand,
   handleTelegramStopCommand,
-  ensureTelegramGuardianActor,
   parseTelegramAccessCallback,
   parseTelegramAccessCommand,
   parseTelegramArchiveCommand,
@@ -799,22 +798,6 @@ export function createTelegramWebhookHandler(
 
     // Handle /new command — reset conversation before it reaches the runtime
     if (isNewCommand(normalized.message.content)) {
-      if (
-        !(await ensureTelegramGuardianActor({
-          config,
-          caches,
-          chatId: normalized.message.conversationExternalId,
-          threadId: topicThreadId,
-          actorExternalId,
-        }))
-      ) {
-        acknowledgeCallbackQuery(
-          normalized.message.callbackQueryId,
-          "new_command_guardian_denied",
-        );
-        return respond({ ok: true });
-      }
-
       const routing = resolveAssistant(
         config,
         normalized.message.conversationExternalId,

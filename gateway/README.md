@@ -60,7 +60,7 @@ See the [Telegram Bot API docs](https://core.telegram.org/bots/api#setwebhook) f
 
 When Topics are enabled for the bot, private-chat messages may include `message_thread_id`. The gateway forwards that id as `source.threadId`; the runtime binds `(telegram, chatId, threadId)` to a conversation. Replies use `message_thread_id` when the deliver URL carries `?threadId=…`. Plain DMs without a thread id keep the legacy single-conversation binding.
 
-Slash commands: all except `/help` and `/start` require the verified Telegram guardian (`/new`, `/stop`, `/fork`, `/rename`, `/archive`, `/profile`, `/access`). Topic-only commands (`/fork`, `/rename`, `/archive`) also require an active topic thread. `/archive` archives the topic's conversation and deletes the Telegram topic; archiving a conversation from any Vellum client closes its Telegram topic through the same path. `/profile` and `/access` post an inline-keyboard switcher — at most one stays live per chat/topic, selecting an option edits the message in place and clears the keyboard.
+Slash commands: all except `/help`, `/start`, and `/new` require the verified Telegram guardian (`/stop`, `/fork`, `/rename`, `/archive`, `/profile`, `/access`). Topic-only commands (`/fork`, `/rename`, `/archive`) also require an active topic thread. `/archive` archives the topic's conversation and deletes the Telegram topic; archiving a conversation from any Vellum client closes its Telegram topic through the same path. `/profile` and `/access` post an inline-keyboard switcher — at most one stays live per chat/topic, selecting an option edits the message in place and clears the keyboard.
 
 ## Telegram Deliver Endpoint Security
 
